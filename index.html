@@ -6,32 +6,33 @@
 <title>ブロック崩し</title>
 
 <style>
-    body {
-        margin: 0;
-        background: #111;
-        color: white;
-        text-align: center;
-        font-family: sans-serif;
-        overflow: hidden;
-    }
+body {
+    margin: 0;
+    background: #111;
+    color: white;
+    text-align: center;
+    font-family: sans-serif;
+}
 
-    h1 {
-        font-size: 24px;
-        margin: 12px 0 5px;
-    }
+h1 {
+    margin: 15px 0 5px;
+}
 
-    #score {
-        font-size: 18px;
-        margin-bottom: 8px;
-    }
+#score {
+    font-size: 20px;
+    margin-bottom: 10px;
+}
 
-    canvas {
-        background: #222;
-        display: block;
-        margin: auto;
-        border: 2px solid white;
-        touch-action: none;
-    }
+canvas {
+    display: block;
+    margin: auto;
+    background: #222;
+    border: 3px solid white;
+    width: 90vw;
+    max-width: 400px;
+    height: auto;
+    touch-action: none;
+}
 </style>
 </head>
 
@@ -40,28 +41,25 @@
 <h1>ブロック崩し</h1>
 <div id="score">スコア：0</div>
 
-<canvas id="game"></canvas>
+<canvas id="game" width="400" height="600"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-canvas.width = Math.min(window.innerWidth - 20, 400);
-canvas.height = Math.min(window.innerHeight - 100, 650);
-
 let ball = {
-    x: canvas.width / 2,
-    y: canvas.height - 80,
+    x: 200,
+    y: 500,
     dx: 3,
     dy: -3,
     r: 8
 };
 
 let paddle = {
+    x: 155,
+    y: 560,
     width: 90,
-    height: 12,
-    x: canvas.width / 2 - 45,
-    y: canvas.height - 35
+    height: 12
 };
 
 let score = 0;
@@ -69,42 +67,27 @@ let gameOver = false;
 
 const rows = 5;
 const cols = 6;
-const brickWidth = (canvas.width - 40) / cols;
-const brickHeight = 22;
+const brickWidth = 58;
+const brickHeight = 25;
 
 let bricks = [];
 
-for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
+for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
         bricks.push({
-            x: 20 + c * brickWidth,
-            y: 40 + r * (brickHeight + 6),
-            width: brickWidth - 5,
+            x: 20 + col * 63,
+            y: 40 + row * 35,
+            width: brickWidth,
             height: brickHeight,
             alive: true
         });
     }
 }
 
-function drawBall() {
-    ctx.beginPath();
-    ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
-    ctx.fillStyle = "white";
-    ctx.fill();
-    ctx.closePath();
-}
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-function drawPaddle() {
-    ctx.fillStyle = "white";
-    ctx.fillRect(
-        paddle.x,
-        paddle.y,
-        paddle.width,
-        paddle.height
-    );
-}
-
-function drawBricks() {
+    // ブロック
     bricks.forEach(brick => {
         if (brick.alive) {
             ctx.fillStyle = "orange";
@@ -116,21 +99,43 @@ function drawBricks() {
             );
         }
     });
+
+    // ボール
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+    ctx.fillStyle = "white";
+    ctx.fill();
+    ctx.closePath();
+
+    // パドル
+    ctx.fillStyle = "white";
+    ctx.fillRect(
+        paddle.x,
+        paddle.y,
+        paddle.width,
+        paddle.height
+    );
+
+    if (!gameOver) {
+        update();
+        requestAnimationFrame(draw);
+    }
 }
 
 function update() {
 
-    if (gameOver) return;
-
     ball.x += ball.dx;
     ball.y += ball.dy;
 
-    // 壁
-    if (ball.x + ball.r > canvas.width ||
-        ball.x - ball.r < 0) {
+    // 左右の壁
+    if (
+        ball.x + ball.r > canvas.width ||
+        ball.x - ball.r < 0
+    ) {
         ball.dx *= -1;
     }
 
+    // 上の壁
     if (ball.y - ball.r < 0) {
         ball.dy *= -1;
     }
@@ -138,5 +143,80 @@ function update() {
     // パドル
     if (
         ball.y + ball.r >= paddle.y &&
+        ball.y < paddle.y + paddle.height &&
         ball.x >= paddle.x &&
-        ball
+        ball.x <= paddle.x + paddle.width
+    ) {
+        ball.dy = -Math.abs(ball.dy);
+    }
+
+    // ブロック
+    bricks.forEach(brick => {
+
+        if (!brick.alive) return;
+
+        if (
+            ball.x > brick.x &&
+            ball.x < brick.x + brick.width &&
+            ball.y - ball.r < brick.y + brick.height &&
+            ball.y + ball.r > brick.y
+        ) {
+            brick.alive = false;
+            ball.dy *= -1;
+
+            score++;
+
+            document.getElementById("score").textContent =
+                "スコア：" + score;
+        }
+    });
+
+    // ゲームオーバー
+    if (ball.y > canvas.height + 20) {
+        gameOver = true;
+        setTimeout(() => {
+            alert("ゲームオーバー！\nスコア：" + score);
+        }, 100);
+    }
+
+    // クリア
+    if (bricks.every(brick => !brick.alive)) {
+        gameOver = true;
+        setTimeout(() => {
+            alert("クリア！🎉\nスコア：" + score);
+        }, 100);
+    }
+}
+
+// スマホの指操作
+canvas.addEventListener("touchmove", function(e) {
+
+    e.preventDefault();
+
+    const rect = canvas.getBoundingClientRect();
+
+    const touchX =
+        e.touches[0].clientX - rect.left;
+
+    const scaleX =
+        canvas.width / rect.width;
+
+    paddle.x =
+        touchX * scaleX - paddle.width / 2;
+
+    if (paddle.x < 0) {
+        paddle.x = 0;
+    }
+
+    if (paddle.x + paddle.width > canvas.width) {
+        paddle.x = canvas.width - paddle.width;
+    }
+
+}, { passive: false });
+
+draw();
+
+</script>
+
+</body>
+</html>
